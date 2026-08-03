@@ -232,7 +232,10 @@ declare
 begin
   admin := public.is_admin(auth.uid());
 
-  if not admin then
+  -- only apply consultant-side locking when there's a real authenticated,
+  -- non-admin caller. SQL Editor / service-role calls (auth.uid() is null)
+  -- and admins bypass these checks entirely.
+  if auth.uid() is not null and not admin then
     if old.status in ('submitted','approved') then
       raise exception 'This entry is locked and can no longer be edited.';
     end if;
@@ -248,7 +251,7 @@ begin
     if new.status = 'submitted' and old.status is distinct from new.status then
       new.submitted_at := now();
     end if;
-  else
+  elsif admin then
     if new.status in ('approved','rejected') and new.status is distinct from old.status then
       new.reviewed_by := auth.uid();
       new.reviewed_at := now();
